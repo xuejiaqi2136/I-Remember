@@ -15,12 +15,13 @@ export const Theme = {
     white: '#FFFcf7',
     overlay: 'rgba(20, 28, 24, 0.45)',
   },
+  // Use iOS system CJK faces so Expo Go tunnel does not download ~60MB font files.
   fonts: {
-    display: 'NotoSerifSC_700Bold',
-    displayRegular: 'NotoSerifSC_400Regular',
-    body: 'NotoSansSC_400Regular',
-    bodyMedium: 'NotoSansSC_500Medium',
-    bodyBold: 'NotoSansSC_700Bold',
+    display: 'Songti SC',
+    displayRegular: 'Songti SC',
+    body: 'PingFang SC',
+    bodyMedium: 'PingFang SC',
+    bodyBold: 'PingFang SC',
   },
   space: {
     xs: 6,

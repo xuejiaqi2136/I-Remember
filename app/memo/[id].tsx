@@ -11,8 +11,8 @@ import {
   View,
 } from 'react-native';
 
+import { BreakDownPanel } from '@/components/BreakDownPanel';
 import { Celebration } from '@/components/Celebration';
-import { DecisionPanel } from '@/components/DecisionPanel';
 import { MotivationSheet } from '@/components/MotivationSheet';
 import { PaperBackground } from '@/components/PaperBackground';
 import { Theme } from '@/constants/Theme';
@@ -24,7 +24,7 @@ import {
   ensureNotificationPermission,
   scheduleMemoReminder,
 } from '@/lib/notifications';
-import type { AdviceRecord, MemoStep, ReminderRepeat } from '@/lib/types';
+import type { MemoStep, ReminderRepeat } from '@/lib/types';
 
 function defaultReminderAt(): string {
   const d = new Date();
@@ -35,7 +35,7 @@ function defaultReminderAt(): string {
 export default function MemoDetailScreen() {
   const { id, from } = useLocalSearchParams<{ id: string; from?: string }>();
   const router = useRouter();
-  const { getMemo, updateMemo, setSteps, appendAdvice, removeMemo, setReminder } = useMemos();
+  const { getMemo, updateMemo, setSteps, removeMemo, setReminder } = useMemos();
   const memo = getMemo(id);
 
   const [stepTitle, setStepTitle] = useState('');
@@ -46,6 +46,7 @@ export default function MemoDetailScreen() {
   const [highlightStepId, setHighlightStepId] = useState<string | null>(null);
   const [repeat, setRepeat] = useState<ReminderRepeat>('once');
   const [remindAt, setRemindAt] = useState(defaultReminderAt());
+  const [showReminder, setShowReminder] = useState(false);
 
   const overdue = useMemo(() => {
     if (!memo || memo.status !== 'pending') return false;
@@ -178,10 +179,6 @@ export default function MemoDetailScreen() {
     setToast('提醒已放下。');
   }
 
-  async function onSavedAdvice(record: AdviceRecord) {
-    await appendAdvice(current.id, record);
-  }
-
   async function onImportSteps(titles: string[]) {
     const base = current.steps.length;
     const imported: MemoStep[] = titles.map((title, i) => ({
@@ -259,46 +256,56 @@ export default function MemoDetailScreen() {
           </View>
         </View>
 
+        <BreakDownPanel memo={current} onImportSteps={onImportSteps} />
+
         <View style={styles.block}>
-          <Text style={styles.heading}>轻提醒</Text>
-          <Text style={styles.hint}>一次、每天或每周。文案只会轻轻说一声。</Text>
-          <View style={styles.repeatRow}>
-            {([
-              ['once', '一次'],
-              ['daily', '每天'],
-              ['weekly', '每周'],
-            ] as const).map(([value, label]) => (
-              <Pressable
-                key={value}
-                onPress={() => setRepeat(value)}
-                style={[styles.chip, repeat === value && styles.chipOn]}>
-                <Text style={[styles.chipText, repeat === value && styles.chipTextOn]}>
-                  {label}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-          <Text style={styles.timeLabel}>
-            时间（本地）：可改 ISO，默认两小时后{'\n'}
-            {new Date(remindAt).toLocaleString()}
-          </Text>
-          <TextInput
-            style={styles.stepInput}
-            value={remindAt}
-            onChangeText={setRemindAt}
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
-          <View style={styles.row}>
-            <Pressable style={styles.primary} onPress={saveReminder}>
-              <Text style={styles.primaryText}>设提醒</Text>
-            </Pressable>
-            {current.reminderRule ? (
-              <Pressable style={styles.ghost} onPress={clearReminder}>
-                <Text style={styles.ghostText}>取消提醒</Text>
-              </Pressable>
-            ) : null}
-          </View>
+          <Pressable onPress={() => setShowReminder((v) => !v)} style={styles.sectionToggle}>
+            <Text style={styles.heading}>轻提醒</Text>
+            <Text style={styles.toggleHint}>
+              {showReminder || current.reminderRule ? '收起' : '设置'}
+            </Text>
+          </Pressable>
+          {(showReminder || current.reminderRule) && (
+            <>
+              <Text style={styles.hint}>一次、每天或每周。文案只会轻轻说一声。</Text>
+              <View style={styles.repeatRow}>
+                {([
+                  ['once', '一次'],
+                  ['daily', '每天'],
+                  ['weekly', '每周'],
+                ] as const).map(([value, label]) => (
+                  <Pressable
+                    key={value}
+                    onPress={() => setRepeat(value)}
+                    style={[styles.chip, repeat === value && styles.chipOn]}>
+                    <Text style={[styles.chipText, repeat === value && styles.chipTextOn]}>
+                      {label}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+              <Text style={styles.timeLabel}>
+                {new Date(remindAt).toLocaleString()}
+              </Text>
+              <TextInput
+                style={styles.stepInput}
+                value={remindAt}
+                onChangeText={setRemindAt}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              <View style={styles.row}>
+                <Pressable style={styles.primary} onPress={saveReminder}>
+                  <Text style={styles.primaryText}>设提醒</Text>
+                </Pressable>
+                {current.reminderRule ? (
+                  <Pressable style={styles.ghost} onPress={clearReminder}>
+                    <Text style={styles.ghostText}>取消提醒</Text>
+                  </Pressable>
+                ) : null}
+              </View>
+            </>
+          )}
         </View>
 
         <View style={styles.row}>
@@ -317,12 +324,6 @@ export default function MemoDetailScreen() {
         </View>
 
         {toast ? <Text style={styles.toast}>{toast}</Text> : null}
-
-        <DecisionPanel
-          memo={current}
-          onSaved={onSavedAdvice}
-          onImportSteps={onImportSteps}
-        />
       </ScrollView>
 
       <MotivationSheet
@@ -376,6 +377,16 @@ const styles = StyleSheet.create({
     fontSize: 22,
     color: Theme.colors.ink,
     marginBottom: Theme.space.xs,
+  },
+  sectionToggle: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  toggleHint: {
+    fontFamily: Theme.fonts.body,
+    fontSize: 13,
+    color: Theme.colors.accent,
   },
   hint: {
     fontFamily: Theme.fonts.body,

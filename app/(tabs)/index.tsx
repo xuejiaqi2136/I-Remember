@@ -29,16 +29,21 @@ export default function HomeScreen() {
       <ScrollView
         contentContainerStyle={[
           styles.content,
-          { paddingTop: insets.top + 18, paddingBottom: insets.bottom + 120 },
+          { paddingTop: insets.top + 28, paddingBottom: insets.bottom + 120 },
         ]}
         showsVerticalScrollIndicator={false}>
-        <Animated.View entering={FadeIn.duration(450)}>
+        <Animated.View entering={FadeIn.duration(450)} style={styles.hero}>
           <Text style={styles.brand}>我记着呢</Text>
           <Text style={styles.tagline}>你慢慢来，我替你记着。</Text>
         </Animated.View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>进行中</Text>
+          <View style={styles.sectionHead}>
+            <Text style={styles.sectionTitle}>进行中</Text>
+            {ready ? (
+              <Text style={styles.count}>{pending.length}</Text>
+            ) : null}
+          </View>
           {!ready ? (
             <Text style={styles.empty}>正在打开笔记本…</Text>
           ) : pending.length === 0 ? (
@@ -75,7 +80,7 @@ export default function HomeScreen() {
         ) : null}
       </ScrollView>
 
-      <View style={[styles.fabWrap, { bottom: insets.bottom + 24 }]}>
+      <View style={[styles.fabWrap, { bottom: insets.bottom + 18 }]}>
         <Link href="/memo/new" asChild>
           <Pressable style={styles.fab}>
             <Text style={styles.fabText}>记一笔</Text>
@@ -90,10 +95,15 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: Theme.space.lg,
   },
+  hero: {
+    minHeight: 140,
+    justifyContent: 'flex-end',
+    paddingBottom: Theme.space.md,
+  },
   brand: {
     fontFamily: Theme.fonts.display,
-    fontSize: 48,
-    lineHeight: 58,
+    fontSize: 52,
+    lineHeight: 62,
     color: Theme.colors.ink,
     letterSpacing: 1,
   },
@@ -106,14 +116,24 @@ const styles = StyleSheet.create({
     maxWidth: 280,
   },
   section: {
-    marginTop: Theme.space.xxl,
+    marginTop: Theme.space.xl,
+  },
+  sectionHead: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 8,
+    marginBottom: Theme.space.sm,
   },
   sectionTitle: {
     fontFamily: Theme.fonts.bodyMedium,
     fontSize: 13,
     color: Theme.colors.muted,
-    marginBottom: Theme.space.sm,
     letterSpacing: 0.5,
+  },
+  count: {
+    fontFamily: Theme.fonts.display,
+    fontSize: 16,
+    color: Theme.colors.accent,
   },
   empty: {
     fontFamily: Theme.fonts.body,
@@ -126,6 +146,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: Theme.space.sm,
   },
   toggleHint: {
     fontFamily: Theme.fonts.body,
@@ -140,7 +161,7 @@ const styles = StyleSheet.create({
   },
   fab: {
     backgroundColor: Theme.colors.accent,
-    paddingHorizontal: 34,
+    paddingHorizontal: 36,
     paddingVertical: 14,
     borderRadius: Theme.radius.md,
     shadowColor: '#1F2A24',

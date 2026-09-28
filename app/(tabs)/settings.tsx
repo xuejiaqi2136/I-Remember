@@ -143,9 +143,9 @@ export default function SettingsScreen() {
         </View>
 
         <View style={styles.block}>
-          <Text style={styles.blockTitle}>人生决策书本</Text>
+          <Text style={styles.blockTitle}>人生指南</Text>
           <Text style={styles.blockBody}>
-            「按指南参谋」使用离线打包的《高性价比人生指南》索引。许可 Unlicense。{'\n'}
+            底部「指南」页提供提问模板：先本地检索《高性价比人生指南》，再按书回答。备忘详情里的「拆成步骤」是简单清单，不走这本书。许可 Unlicense。{'\n'}
             {getSourceUrl()}
           </Text>
         </View>

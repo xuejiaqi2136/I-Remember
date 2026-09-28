@@ -19,42 +19,39 @@ import {
   safetyPreface,
   searchEntries,
 } from '@/lib/hltb/index';
-import { buildDecisionMessages, extractActionSteps } from '@/lib/hltb/prompt';
-import { createId } from '@/lib/id';
-import type { AdviceRecord, Memo } from '@/lib/types';
+import { buildDecisionMessages } from '@/lib/hltb/prompt';
+
+const TEMPLATES = [
+  '拖延严重，怎么开始动手？',
+  '替朋友担保签不签？',
+  '失业了能领什么、去哪求助？',
+  '租房押金被扣怎么办？',
+];
 
 type Props = {
-  memo: Memo;
-  onSaved: (record: AdviceRecord) => Promise<void>;
-  onImportSteps: (titles: string[]) => Promise<void>;
+  onSaveAsMemo?: (input: { title: string; note: string }) => Promise<void>;
 };
 
-export function DecisionPanel({ memo, onSaved, onImportSteps }: Props) {
-  const [question, setQuestion] = useState(
-    [memo.title, memo.note].filter(Boolean).join('\n')
-  );
+export function GuidePanel({ onSaveAsMemo }: Props) {
+  const [question, setQuestion] = useState('');
   const [loading, setLoading] = useState(false);
-  const [answer, setAnswer] = useState<string | null>(
-    memo.adviceHistory[0]?.answer ?? null
-  );
+  const [answer, setAnswer] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [lastEntryIds, setLastEntryIds] = useState<string[]>(
-    memo.adviceHistory[0]?.entryIds ?? []
-  );
   const [toast, setToast] = useState<string | null>(null);
 
-  async function runAdvice() {
+  async function ask(qRaw?: string) {
     setError(null);
     setToast(null);
-    const q = question.trim();
+    const q = (qRaw ?? question).trim();
     if (!q) {
-      setError('先写一点你想参谋的事。');
+      setError('先写一个具体问题。');
       return;
     }
+    setQuestion(q);
 
     const config = await loadAiConfig();
     if (!isAiConfigured(config)) {
-      setError('还没有配置中转站。去设置里填 Base URL、API Key 和模型名即可。');
+      setError('还没有配置中转站。去设置里填 Base URL、API Key 和模型名。');
       return;
     }
 
@@ -65,9 +62,7 @@ export function DecisionPanel({ memo, onSaved, onImportSteps }: Props) {
       const hits = searchEntries(q, 8);
 
       if (!hits.length) {
-        const fallback = [preface, emptyBookAnswer(q)].filter(Boolean).join('\n\n');
-        setAnswer(fallback);
-        setLastEntryIds([]);
+        setAnswer([preface, emptyBookAnswer(q)].filter(Boolean).join('\n\n'));
         return;
       }
 
@@ -77,58 +72,51 @@ export function DecisionPanel({ memo, onSaved, onImportSteps }: Props) {
         { temperature: 0.25, maxTokens: 2000 }
       );
       setAnswer(content);
-      setLastEntryIds(hits.map((h) => h.id));
     } catch (e) {
-      setError(e instanceof Error ? e.message : '参谋失败了，稍后再试。');
+      setError(e instanceof Error ? e.message : '问答失败了，稍后再试。');
     } finally {
       setLoading(false);
     }
   }
 
-  async function save() {
-    if (!answer) return;
-    const record: AdviceRecord = {
-      id: createId('advice'),
-      question: question.trim(),
-      answer,
-      entryIds: lastEntryIds,
-      createdAt: new Date().toISOString(),
-    };
-    await onSaved(record);
-    setToast('参谋记录已收进这条备忘。');
-  }
-
-  async function importSteps() {
-    if (!answer) return;
-    const steps = extractActionSteps(answer);
-    if (!steps.length) {
-      setToast('没有识别到「先做这几条」，可以手动拆步骤。');
-      return;
-    }
-    await onImportSteps(steps);
-    setToast(`已收成 ${steps.length} 个小步骤。`);
+  async function saveMemo() {
+    if (!onSaveAsMemo || !answer) return;
+    await onSaveAsMemo({
+      title: question.trim().slice(0, 40) || '指南问答',
+      note: answer,
+    });
+    setToast('已记成一条备忘，可在「备忘」里继续拆步骤。');
   }
 
   return (
     <View style={styles.wrap}>
-      <Text style={styles.heading}>按指南参谋</Text>
       <Text style={styles.hint}>
-        先本地检索《高性价比人生指南》，再把条目原文交给你的中转站整理。没查到就不瞎编。
+        先本地检索《高性价比人生指南》，再按书里条目回答。没查到就直说书里没写。
       </Text>
+
+      <View style={styles.templates}>
+        {TEMPLATES.map((t) => (
+          <Pressable key={t} style={styles.chip} onPress={() => ask(t)}>
+            <Text style={styles.chipText}>{t}</Text>
+          </Pressable>
+        ))}
+      </View>
+
       <TextInput
         style={styles.input}
         multiline
         value={question}
         onChangeText={setQuestion}
-        placeholder="把犹豫写清楚一点…"
+        placeholder="例如：该不该签这份担保…"
         placeholderTextColor={Theme.colors.muted}
       />
+
       <View style={styles.actions}>
-        <Pressable style={styles.primary} onPress={runAdvice} disabled={loading}>
+        <Pressable style={styles.primary} onPress={() => ask()} disabled={loading}>
           {loading ? (
             <ActivityIndicator color={Theme.colors.white} />
           ) : (
-            <Text style={styles.primaryText}>按指南参谋</Text>
+            <Text style={styles.primaryText}>按指南回答</Text>
           )}
         </Pressable>
         <Link href="/(tabs)/settings" asChild>
@@ -137,19 +125,19 @@ export function DecisionPanel({ memo, onSaved, onImportSteps }: Props) {
           </Pressable>
         </Link>
       </View>
+
       {error ? <Text style={styles.error}>{error}</Text> : null}
+
       {answer ? (
         <View style={styles.answerBox}>
+          <Text style={styles.answerLabel}>答复</Text>
           <Text style={styles.answer}>{answer}</Text>
-          <Text style={styles.source}>书本索引来源：{getSourceUrl()}</Text>
-          <View style={styles.actions}>
-            <Pressable style={styles.secondary} onPress={save}>
-              <Text style={styles.secondaryText}>保存参谋记录</Text>
+          <Text style={styles.source}>书本索引：{getSourceUrl()}</Text>
+          {onSaveAsMemo ? (
+            <Pressable style={styles.secondary} onPress={saveMemo}>
+              <Text style={styles.secondaryText}>记成备忘</Text>
             </Pressable>
-            <Pressable style={styles.secondary} onPress={importSteps}>
-              <Text style={styles.secondaryText}>把建议收成步骤</Text>
-            </Pressable>
-          </View>
+          ) : null}
         </View>
       ) : null}
       {toast ? <Text style={styles.toast}>{toast}</Text> : null}
@@ -159,33 +147,41 @@ export function DecisionPanel({ memo, onSaved, onImportSteps }: Props) {
 
 const styles = StyleSheet.create({
   wrap: {
-    marginTop: Theme.space.xl,
-    paddingTop: Theme.space.lg,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: Theme.colors.line,
-  },
-  heading: {
-    fontFamily: Theme.fonts.display,
-    fontSize: 22,
-    color: Theme.colors.ink,
-    marginBottom: Theme.space.xs,
+    flex: 1,
   },
   hint: {
     fontFamily: Theme.fonts.body,
-    fontSize: 13,
-    lineHeight: 20,
-    color: Theme.colors.muted,
+    fontSize: 14,
+    lineHeight: 22,
+    color: Theme.colors.inkSoft,
     marginBottom: Theme.space.md,
   },
+  templates: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: Theme.space.md,
+  },
+  chip: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: Theme.radius.sm,
+    backgroundColor: Theme.colors.accentSoft,
+  },
+  chipText: {
+    fontFamily: Theme.fonts.body,
+    fontSize: 13,
+    color: Theme.colors.accent,
+  },
   input: {
-    minHeight: 96,
+    minHeight: 100,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: Theme.colors.line,
-    backgroundColor: 'rgba(255,252,247,0.65)',
+    backgroundColor: 'rgba(255,252,247,0.7)',
     borderRadius: Theme.radius.md,
     padding: Theme.space.md,
     fontFamily: Theme.fonts.body,
-    fontSize: 15,
+    fontSize: 16,
     color: Theme.colors.ink,
     textAlignVertical: 'top',
   },
@@ -194,10 +190,11 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: Theme.space.sm,
     marginTop: Theme.space.md,
+    alignItems: 'center',
   },
   primary: {
     backgroundColor: Theme.colors.accent,
-    paddingHorizontal: 16,
+    paddingHorizontal: 18,
     paddingVertical: 12,
     borderRadius: Theme.radius.sm,
     minWidth: 120,
@@ -209,7 +206,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   ghost: {
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
     paddingVertical: 12,
   },
   ghostText: {
@@ -218,6 +215,8 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   secondary: {
+    marginTop: Theme.space.md,
+    alignSelf: 'flex-start',
     backgroundColor: Theme.colors.accentSoft,
     paddingHorizontal: 14,
     paddingVertical: 10,
@@ -236,7 +235,16 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   answerBox: {
-    marginTop: Theme.space.md,
+    marginTop: Theme.space.xl,
+    paddingTop: Theme.space.lg,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: Theme.colors.line,
+  },
+  answerLabel: {
+    fontFamily: Theme.fonts.bodyMedium,
+    fontSize: 12,
+    color: Theme.colors.muted,
+    marginBottom: Theme.space.sm,
   },
   answer: {
     fontFamily: Theme.fonts.body,

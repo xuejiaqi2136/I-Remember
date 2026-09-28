@@ -31,16 +31,17 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="guide"
+        options={{
+          title: '指南',
+          tabBarIcon: ({ color }) => <TabGlyph label="问" color={String(color)} />,
+        }}
+      />
+      <Tabs.Screen
         name="settings"
         options={{
           title: '设置',
           tabBarIcon: ({ color }) => <TabGlyph label="设" color={String(color)} />,
-        }}
-      />
-      <Tabs.Screen
-        name="two"
-        options={{
-          href: null,
         }}
       />
     </Tabs>
